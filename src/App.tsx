@@ -1,7 +1,12 @@
 // src/App.js
 
 import { useRef, useMemo, useState } from 'react';
-import { Canvas, useFrame, useLoader, type ThreeEvent } from '@react-three/fiber';
+import {
+  Canvas,
+  useFrame,
+  useLoader,
+  type ThreeEvent
+} from '@react-three/fiber';
 import { TextureLoader, Vector2, Mesh, ShaderMaterial, MathUtils } from 'three';
 import { vertexShader, fragmentShader } from './shaders';
 import './index.css';
@@ -19,7 +24,10 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
   // Dùng ref để lưu trữ vị trí chuột. Cách này không gây re-render.
   const mousePosRef = useRef(new Vector2(0.5, 0.5));
 
-  const aspect = useMemo(() => (texture1.image ? texture1.image.width / texture1.image.height : 1), [texture1]);
+  const aspect = useMemo(
+    () => (texture1.image ? texture1.image.width / texture1.image.height : 1),
+    [texture1]
+  );
   const planeSize = useMemo(() => {
     const width = 15;
     const height = width / aspect;
@@ -30,11 +38,13 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
     () => ({
       u_texture1: { value: texture1 },
       u_texture2: { value: texture2 },
-      // Giá trị của u_mouse sẽ được cập nhật liên tục trong useFrame
       u_mouse: { value: new Vector2(0.5, 0.5) },
       u_time: { value: 0.0 },
       u_intensity: { value: 0.0 },
-      u_radius: { value: 0.0 }
+      u_radius: { value: 0.0 },
+      u_ring_thickness: { value: 0.02 },
+      // Dòng thêm mới: Kiểm soát độ nhọn của giọt nước
+      u_pointiness: { value: 0.8 }
     }),
     [texture1, texture2]
   );
@@ -53,13 +63,13 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
 
       // Cập nhật uniform thời gian
       material.uniforms.u_time.value = state.clock.getElapsedTime();
-      
+
       // Lấy giá trị từ ref và cập nhật vào uniform
       material.uniforms.u_mouse.value.copy(mousePosRef.current);
-      
+
       // Logic làm mờ hiệu ứng vẫn giữ nguyên
       const targetIntensity = isMoving ? 1.0 : 0.0;
-      const targetRadius = isMoving ? 0.12 : 0.0;
+      const targetRadius = isMoving ? 0.1 : 0.0;
 
       material.uniforms.u_intensity.value = MathUtils.lerp(
         material.uniforms.u_intensity.value,
@@ -105,7 +115,10 @@ export default function App() {
   return (
     <div className="container">
       {/* Sự kiện trên Canvas giờ chỉ dùng để xác định xem chuột có dừng hay không */}
-      <Canvas camera={{ fov: 50, position: [0, 0, 15] }} onPointerMove={handlePointerMove}>
+      <Canvas
+        camera={{ fov: 50, position: [0, 0, 15] }}
+        onPointerMove={handlePointerMove}
+      >
         {/* Truyền isMoving xuống để có hiệu ứng fade out */}
         <WaterEffect isMoving={isMoving} />
       </Canvas>
