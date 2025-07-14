@@ -1,6 +1,6 @@
 // src/App.js
 
-import React, { useRef, useMemo, useState } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame, useLoader, type ThreeEvent } from '@react-three/fiber';
 import { TextureLoader, Vector2, Mesh, ShaderMaterial, MathUtils } from 'three';
 import { vertexShader, fragmentShader } from './shaders';
