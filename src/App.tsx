@@ -14,6 +14,8 @@ import './index.css';
 import bg_1 from './assets/demo_1.png';
 import bg_2 from './assets/demo_2.png';
 
+const TRAIL_LENGTH = 20;
+
 function WaterEffect({ isMoving }: { isMoving: boolean }) {
   const texture1 = useLoader(TextureLoader, bg_1);
   const texture2 = useLoader(TextureLoader, bg_2);
@@ -21,7 +23,11 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
 
   const { viewport } = useThree();
 
-  const mousePosRef = useRef(new Vector2(0.5, 0.5));
+  const trailRef = useRef(
+    Array.from({ length: TRAIL_LENGTH }, () => new Vector2(0.5, 0.5))
+  );
+
+  // const mousePosRef = useRef(new Vector2(0.5, 0.5));
 
   const planeSize = useMemo(() => {
     if (!texture1.image) return [1, 1];
@@ -46,7 +52,8 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
     () => ({
       u_texture1: { value: texture1 },
       u_texture2: { value: texture2 },
-      u_mouse: { value: new Vector2(0.5, 0.5) },
+      // THAY ĐỔI 2: Đổi u_mouse thành u_trail và truyền vào mảng
+      u_trail: { value: trailRef.current },
       u_time: { value: 0.0 },
       u_intensity: { value: 0.0 },
       u_radius: { value: 0.0 },
@@ -57,22 +64,38 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
   );
 
   const handlePointerMove = (event: ThreeEvent<MouseEvent>) => {
+    // Chỉ cần cập nhật vị trí chuột mục tiêu
     if (event.uv) {
-      mousePosRef.current.copy(event.uv);
+      mouseTarget.copy(event.uv);
     }
   };
+
+  const mouseTarget = useMemo(() => new Vector2(0.5, 0.5), []);
 
   useFrame(state => {
     if (meshRef.current?.material) {
       const material = meshRef.current.material as ShaderMaterial;
-
       material.uniforms.u_time.value = state.clock.getElapsedTime();
 
-      material.uniforms.u_mouse.value.copy(mousePosRef.current);
+      // THAY ĐỔI 3: Logic cập nhật vệt mờ trong mỗi frame
+      const trail = trailRef.current;
+      const targetPos = mouseTarget;
 
+      trail.forEach((point, i) => {
+        // Điểm đầu tiên đuổi theo chuột
+        if (i === 0) {
+          point.lerp(targetPos, 0.3);
+        } else {
+          // Các điểm sau đuổi theo điểm ngay trước nó
+          point.lerp(trail[i - 1], 0.3);
+        }
+      });
+      // Cập nhật giá trị uniform
+      material.uniforms.u_trail.value = trail;
+
+      // ... logic lerp cho intensity và radius không đổi ...
       const targetIntensity = isMoving ? 1.0 : 0.0;
       const targetRadius = isMoving ? 0.14 : 0.0;
-
       material.uniforms.u_intensity.value = MathUtils.lerp(
         material.uniforms.u_intensity.value,
         targetIntensity,
