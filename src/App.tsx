@@ -95,7 +95,7 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
 
       // ... logic lerp cho intensity và radius không đổi ...
       const targetIntensity = isMoving ? 1.0 : 0.0;
-      const targetRadius = isMoving ? 0.12 : 0.0;
+      const targetRadius = isMoving ? 0.1 : 0.0;
       material.uniforms.u_intensity.value = MathUtils.lerp(
         material.uniforms.u_intensity.value,
         targetIntensity,
