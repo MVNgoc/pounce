@@ -12,7 +12,7 @@ import bg_2 from './assets/demo_2_full.png';
 import { fragmentShader, vertexShader } from './shaders';
 
 // Hằng số định nghĩa độ dài của vệt mờ (số lượng điểm).
-const TRAIL_LENGTH = 25;
+const TRAIL_LENGTH = 40;
 
 // Component chính tạo hiệu ứng nước.
 function WaterEffect({ isMoving }: { isMoving: boolean }) {
@@ -100,16 +100,17 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
       // Lấy ra mảng các vị trí từ ref.
       const trail = trailRef.current;
       const targetPos = mouseTarget;
+      const LERP_FACTOR = 0.4;
 
       // Vòng lặp để cập nhật vị trí cho từng điểm trong vệt mờ.
       trail.forEach((point, i) => {
         if (i === 0) {
           // Điểm đầu tiên (`i === 0`) sẽ đuổi theo vị trí con trỏ chuột (`targetPos`).
           // `lerp` (Linear Interpolation) tạo ra chuyển động mượt mà. 0.3 là hệ số làm mượt.
-          point.lerp(targetPos, 0.3);
+          point.lerp(targetPos, LERP_FACTOR);
         } else {
           // Các điểm còn lại sẽ đuổi theo điểm ngay phía trước nó (`trail[i - 1]`).
-          point.lerp(trail[i - 1], 0.3);
+          point.lerp(trail[i - 1], LERP_FACTOR);
         }
       });
       // Gửi mảng vị trí đã được cập nhật vào cho shader.
@@ -117,7 +118,7 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
 
       // Xác định cường độ và bán kính mục tiêu của hiệu ứng dựa trên prop `isMoving`.
       const targetIntensity = isMoving ? 1.0 : 0.0; // 1.0 nếu chuột đang di chuyển.
-      const targetRadius = isMoving ? 0.08 : 0.0; // 0.14 nếu chuột đang di chuyển.
+      const targetRadius = isMoving ? 0.07 : 0.0; // 0.14 nếu chuột đang di chuyển.
 
       // Làm mượt giá trị cường độ để hiệu ứng xuất hiện và biến mất từ từ.
       material.uniforms.u_intensity.value = MathUtils.lerp(

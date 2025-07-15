@@ -7,7 +7,7 @@ export const vertexShader = `
 `;
 
 export const fragmentShader = `
-#define TRAIL_LENGTH 20
+#define TRAIL_LENGTH 40
 #define METABALL_THRESHOLD 0.7 
 #define EDGE_THICKNESS 0.15 
 
