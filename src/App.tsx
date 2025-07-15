@@ -5,6 +5,7 @@ import {
   Canvas,
   useFrame,
   useLoader,
+  useThree,
   type ThreeEvent
 } from '@react-three/fiber';
 import { TextureLoader, Vector2, Mesh, ShaderMaterial, MathUtils } from 'three';
@@ -13,26 +14,33 @@ import './index.css';
 import bg_1 from './assets/demo_1.png';
 import bg_2 from './assets/demo_2.png';
 
-// ========================================================================
-// Component WaterEffect giờ sẽ tự quản lý vị trí chuột
-// ========================================================================
 function WaterEffect({ isMoving }: { isMoving: boolean }) {
   const texture1 = useLoader(TextureLoader, bg_1);
   const texture2 = useLoader(TextureLoader, bg_2);
   const meshRef = useRef<Mesh>(null!);
 
-  // Dùng ref để lưu trữ vị trí chuột. Cách này không gây re-render.
+  const { viewport } = useThree();
+
   const mousePosRef = useRef(new Vector2(0.5, 0.5));
 
-  const aspect = useMemo(
-    () => (texture1.image ? texture1.image.width / texture1.image.height : 1),
-    [texture1]
-  );
   const planeSize = useMemo(() => {
-    const width = 15;
-    const height = width / aspect;
+    if (!texture1.image) return [1, 1];
+
+    const imageAspect = texture1.image.width / texture1.image.height;
+    const viewportAspect = viewport.width / viewport.height;
+
+    let width, height;
+
+    if (imageAspect > viewportAspect) {
+      width = viewport.width;
+      height = width / imageAspect;
+    } else {
+      height = viewport.height;
+      width = height * imageAspect;
+    }
+
     return [width, height];
-  }, [aspect]);
+  }, [texture1, viewport]);
 
   const uniforms = useMemo(
     () => ({
@@ -43,15 +51,12 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
       u_intensity: { value: 0.0 },
       u_radius: { value: 0.0 },
       u_ring_thickness: { value: 0.02 },
-      // Dòng thêm mới: Kiểm soát độ nhọn của giọt nước
       u_pointiness: { value: 0.8 }
     }),
     [texture1, texture2]
   );
 
-  // Hàm xử lý sự kiện di chuột, được đặt ngay trong component này
   const handlePointerMove = (event: ThreeEvent<MouseEvent>) => {
-    // Khi chuột di chuyển trên mesh, cập nhật giá trị trong ref
     if (event.uv) {
       mousePosRef.current.copy(event.uv);
     }
@@ -61,15 +66,12 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
     if (meshRef.current?.material) {
       const material = meshRef.current.material as ShaderMaterial;
 
-      // Cập nhật uniform thời gian
       material.uniforms.u_time.value = state.clock.getElapsedTime();
 
-      // Lấy giá trị từ ref và cập nhật vào uniform
       material.uniforms.u_mouse.value.copy(mousePosRef.current);
 
-      // Logic làm mờ hiệu ứng vẫn giữ nguyên
       const targetIntensity = isMoving ? 1.0 : 0.0;
-      const targetRadius = isMoving ? 0.1 : 0.0;
+      const targetRadius = isMoving ? 0.14 : 0.0;
 
       material.uniforms.u_intensity.value = MathUtils.lerp(
         material.uniforms.u_intensity.value,
@@ -79,13 +81,12 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
       material.uniforms.u_radius.value = MathUtils.lerp(
         material.uniforms.u_radius.value,
         targetRadius,
-        0.1
+        0.05
       );
     }
   });
 
   return (
-    // Gắn sự kiện onPointerMove trực tiếp vào mesh này
     <mesh ref={meshRef} onPointerMove={handlePointerMove}>
       <planeGeometry args={planeSize as [number, number]} />
       <shaderMaterial
@@ -98,14 +99,10 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
   );
 }
 
-// ========================================================================
-// Component App chính giờ chỉ quản lý việc chuột có di chuyển hay không
-// ========================================================================
 export default function App() {
   const [isMoving, setIsMoving] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Hàm này giờ chỉ có nhiệm vụ set isMoving, không cần raycaster
   const handlePointerMove = () => {
     setIsMoving(true);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -114,12 +111,10 @@ export default function App() {
 
   return (
     <div className="container">
-      {/* Sự kiện trên Canvas giờ chỉ dùng để xác định xem chuột có dừng hay không */}
       <Canvas
         camera={{ fov: 50, position: [0, 0, 15] }}
         onPointerMove={handlePointerMove}
       >
-        {/* Truyền isMoving xuống để có hiệu ứng fade out */}
         <WaterEffect isMoving={isMoving} />
       </Canvas>
     </div>
