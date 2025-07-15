@@ -9,8 +9,11 @@ export const vertexShader = `
 
 // fragmentShader đã được cập nhật với đầy đủ hàm snoise
 export const fragmentShader = `
-// Định nghĩa độ dài của mảng, phải khớp với giá trị trong JS
+// Định nghĩa các hằng số
 #define TRAIL_LENGTH 20
+#define METABALL_THRESHOLD 0.7 
+// THAM SỐ MỚI: Độ dày của viền gợn sóng
+#define EDGE_THICKNESS 0.15 
 
 precision mediump float;
 
@@ -21,8 +24,8 @@ uniform vec2 u_trail[TRAIL_LENGTH];
 uniform float u_time;
 uniform float u_intensity;
 uniform float u_radius;
-uniform float u_ring_thickness;
-uniform float u_pointiness;
+// uniform float u_ring_thickness; // Không cần nữa
+// uniform float u_pointiness; // Không cần nữa
 
 varying vec2 vUv;
 
@@ -52,44 +55,54 @@ float snoise(vec2 v) {
     return 130.0 * dot(m, g);
 }
 
-
 void main() {
-    // Tìm khoảng cách ngắn nhất đến bất kỳ điểm nào trong vệt mờ
-    float min_dist = 9999.0; // Khởi tạo với một số rất lớn
+    float total_energy = 0.0;
 
+    // 1. Tính tổng "năng lượng" từ tất cả các điểm (không đổi)
     for (int i = 0; i < TRAIL_LENGTH; i++) {
         vec2 p = vUv - u_trail[i];
-        p.y *= 1.0 + p.x * u_pointiness;
-
         float trail_falloff = 1.0 - float(i) / float(TRAIL_LENGTH);
-        float current_dist = length(p) - (u_radius * trail_falloff);
-
-        min_dist = min(min_dist, current_dist);
+        float radius = u_radius * trail_falloff;
+        float dist_sq = dot(p, p);
+        total_energy += smoothstep(radius * radius, 0.0, dist_sq);
     }
     
-    float dist = min_dist;
-
-    float edge_smoothness = 0.01;
-    float inner_dist_offset = -u_ring_thickness;
-    float outer_edge = smoothstep(0.0, -edge_smoothness, dist);
-    float inner_edge = smoothstep(inner_dist_offset, inner_dist_offset - edge_smoothness, dist);
-    float distortion_strength = (outer_edge - inner_edge) * u_intensity;
-
-    float reveal_alpha = smoothstep(edge_smoothness, -edge_smoothness, dist) * u_intensity;
-    
     // =======================================================
-    // DÒNG NÀY ĐÃ ĐƯỢC SỬA LỖI
+    // BẮT ĐẦU LOGIC MỚI
+    // =======================================================
+
+    // 2. Tính toán vùng hiển thị bên trong (hình metaball)
+    //    Giá trị này là 1.0 bên trong, 0.0 bên ngoài.
+    float reveal_alpha = step(METABALL_THRESHOLD, total_energy);
+
+    // 3. Tính toán vùng viền gợn sóng
+    //    Tạo ra một dải có giá trị từ 0 -> 1 -> 0 xung quanh viền
+    float ring_start = METABALL_THRESHOLD - EDGE_THICKNESS;
+    float ring_end = METABALL_THRESHOLD + EDGE_THICKNESS;
+    float distortion_ring = smoothstep(ring_start, METABALL_THRESHOLD, total_energy) - smoothstep(METABALL_THRESHOLD, ring_end, total_energy);
+    
+    // Cường độ biến dạng chỉ áp dụng tại vùng viền này
+    float distortion_strength = distortion_ring * u_intensity;
+
+    // =======================================================
+    // KẾT THÚC LOGIC MỚI
+    // =======================================================
+
+    // Tính toán nhiễu và biến dạng
     vec2 noise_vec = vec2(snoise(vUv * 5.0 + vec2(u_time * 0.5)));
-    // =======================================================
+    vec2 displacement = vUv + noise_vec * 0.03 * distortion_strength;
     
-    vec2 displacement = vUv + noise_vec * 0.02 * distortion_strength;
-    
-    vec4 distorted_color = texture2D(u_texture1, displacement);
-    vec4 clear_color = texture2D(u_texture1, vUv);
-    vec4 top_color = texture2D(u_texture2, vUv);
-    
-    vec4 final_color = mix(top_color, clear_color, reveal_alpha);
-    final_color = mix(final_color, distorted_color, distortion_strength);
+    // Lấy màu từ các texture
+    vec4 distorted_color = texture2D(u_texture1, displacement); // Màu nền bị biến dạng
+    vec4 clear_color = texture2D(u_texture1, vUv); // Màu nền không biến dạng
+    vec4 top_color = texture2D(u_texture2, vUv); // Màu UI không biến dạng
+
+    // 4. Kết hợp màu sắc
+    // Bước A: Hiển thị UI bên trong vùng metaball, nền ở bên ngoài. Cả hai đều không bị biến dạng.
+    vec4 base_mixed_color = mix(top_color, clear_color, reveal_alpha);
+
+    // Bước B: Trộn thêm màu nền bị biến dạng chỉ tại vùng viền
+    vec4 final_color = mix(base_mixed_color, distorted_color, distortion_strength);
 
     gl_FragColor = final_color;
 }
