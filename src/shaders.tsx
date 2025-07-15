@@ -1,4 +1,3 @@
-// vertexShader không thay đổi
 export const vertexShader = `
   varying vec2 vUv;
   void main() {
@@ -7,29 +6,22 @@ export const vertexShader = `
   }
 `;
 
-// fragmentShader đã được cập nhật với đầy đủ hàm snoise
 export const fragmentShader = `
-// Định nghĩa các hằng số
 #define TRAIL_LENGTH 20
 #define METABALL_THRESHOLD 0.7 
-// THAM SỐ MỚI: Độ dày của viền gợn sóng
 #define EDGE_THICKNESS 0.15 
 
 precision mediump float;
 
-// Uniforms
 uniform sampler2D u_texture1;
 uniform sampler2D u_texture2;
 uniform vec2 u_trail[TRAIL_LENGTH];
 uniform float u_time;
 uniform float u_intensity;
 uniform float u_radius;
-// uniform float u_ring_thickness; // Không cần nữa
-// uniform float u_pointiness; // Không cần nữa
 
 varying vec2 vUv;
 
-// ... hàm snoise không đổi ...
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
@@ -58,7 +50,6 @@ float snoise(vec2 v) {
 void main() {
     float total_energy = 0.0;
 
-    // 1. Tính tổng "năng lượng" từ tất cả các điểm (không đổi)
     for (int i = 0; i < TRAIL_LENGTH; i++) {
         vec2 p = vUv - u_trail[i];
         float trail_falloff = 1.0 - float(i) / float(TRAIL_LENGTH);
@@ -67,41 +58,23 @@ void main() {
         total_energy += smoothstep(radius * radius, 0.0, dist_sq);
     }
     
-    // =======================================================
-    // BẮT ĐẦU LOGIC MỚI
-    // =======================================================
-
-    // 2. Tính toán vùng hiển thị bên trong (hình metaball)
-    //    Giá trị này là 1.0 bên trong, 0.0 bên ngoài.
     float reveal_alpha = step(METABALL_THRESHOLD, total_energy);
 
-    // 3. Tính toán vùng viền gợn sóng
-    //    Tạo ra một dải có giá trị từ 0 -> 1 -> 0 xung quanh viền
     float ring_start = METABALL_THRESHOLD - EDGE_THICKNESS;
     float ring_end = METABALL_THRESHOLD + EDGE_THICKNESS;
     float distortion_ring = smoothstep(ring_start, METABALL_THRESHOLD, total_energy) - smoothstep(METABALL_THRESHOLD, ring_end, total_energy);
     
-    // Cường độ biến dạng chỉ áp dụng tại vùng viền này
     float distortion_strength = distortion_ring * u_intensity;
 
-    // =======================================================
-    // KẾT THÚC LOGIC MỚI
-    // =======================================================
-
-    // Tính toán nhiễu và biến dạng
     vec2 noise_vec = vec2(snoise(vUv * 5.0 + vec2(u_time * 0.5)));
     vec2 displacement = vUv + noise_vec * 0.03 * distortion_strength;
     
-    // Lấy màu từ các texture
     vec4 distorted_color = texture2D(u_texture1, displacement); // Màu nền bị biến dạng
     vec4 clear_color = texture2D(u_texture1, vUv); // Màu nền không biến dạng
     vec4 top_color = texture2D(u_texture2, vUv); // Màu UI không biến dạng
 
-    // 4. Kết hợp màu sắc
-    // Bước A: Hiển thị UI bên trong vùng metaball, nền ở bên ngoài. Cả hai đều không bị biến dạng.
     vec4 base_mixed_color = mix(top_color, clear_color, reveal_alpha);
 
-    // Bước B: Trộn thêm màu nền bị biến dạng chỉ tại vùng viền
     vec4 final_color = mix(base_mixed_color, distorted_color, distortion_strength);
 
     gl_FragColor = final_color;
