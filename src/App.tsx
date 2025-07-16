@@ -58,6 +58,11 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
     return [width, height];
   }, [texture1, viewport]); // Dependencies của useMemo.
 
+  const aspect = useMemo(
+    () => (texture1.image ? texture1.image.width / texture1.image.height : 1),
+    [texture1]
+  );
+
   // Dùng `useMemo` để định nghĩa các 'uniform' - các biến được truyền từ JavaScript vào shader.
   // Chỉ tạo lại object này khi texture thay đổi.
   const uniforms = useMemo(
@@ -70,9 +75,10 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
       u_radius: { value: 0.0 }, // Bán kính của hiệu ứng.
       // Các uniform cũ có thể không cần dùng nữa, tùy thuộc vào shader cuối cùng của bạn.
       u_ring_thickness: { value: 0.02 },
-      u_pointiness: { value: 0.8 }
+      u_pointiness: { value: 0.8 },
+      u_aspect: { value: aspect }
     }),
-    [texture1, texture2] // Dependencies của useMemo.
+    [texture1, texture2, aspect] // Dependencies của useMemo.
   );
 
   // Hàm xử lý sự kiện khi chuột di chuyển trên tấm plane.
@@ -118,7 +124,7 @@ function WaterEffect({ isMoving }: { isMoving: boolean }) {
 
       // Xác định cường độ và bán kính mục tiêu của hiệu ứng dựa trên prop `isMoving`.
       const targetIntensity = isMoving ? 1.0 : 0.0; // 1.0 nếu chuột đang di chuyển.
-      const targetRadius = isMoving ? 0.07 : 0.0; // 0.14 nếu chuột đang di chuyển.
+      const targetRadius = isMoving ? 0.04 : 0.0; // 0.14 nếu chuột đang di chuyển.
 
       // Làm mượt giá trị cường độ để hiệu ứng xuất hiện và biến mất từ từ.
       material.uniforms.u_intensity.value = MathUtils.lerp(
